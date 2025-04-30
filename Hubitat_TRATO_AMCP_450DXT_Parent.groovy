@@ -81,14 +81,16 @@ def sendCommand(String cmd) {
         pauseExecution(state.commandDelay - (now() - state.lastCommandSent))
     }
     
-    // Convert command to sendserialhex format
-    def formattedCmd = "sendserialhex," + cmd.replaceAll(" ", ",")
-    
-    if (debugLogging) log.debug "Sending formatted command: ${formattedCmd}"
+    if (debugLogging) log.debug "Sending command: ${cmd}"
     
     try {
-        // Send as String instead of byte array
-        interfaces.rawSocket.sendMessage(formattedCmd)
+        // Convert hex string to bytes
+        def bytes = []
+        cmd.split().each { part ->
+            bytes.add(Integer.parseInt(part, 16))
+        }
+        
+        interfaces.rawSocket.sendMessage(bytes)
         state.lastCommandSent = now()
     } catch (Exception e) {
         log.error "Failed to send command: ${e.message}"
@@ -105,42 +107,35 @@ def off(){
 powerOffAllZones()
 }
 
-// Turn ON all zones (1-4)
+// Power Control for All Zones
 def powerOnAllZones() {
-    if (debugLogging) log.debug "Powering ON all zones"
     (1..4).each { zone ->
-        sendCommand("02 A1 45 3${zone} 4C 80 30 30 0d")
+        sendCommand("02 A1 45 3${zone} 4C 80 30 30 0d") // Power ON command
         getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "switch", value: "on")
     }
 }
 
-// Turn OFF all zones (1-4) 
 def powerOffAllZones() {
-    if (debugLogging) log.debug "Powering OFF all zones"
     (1..4).each { zone ->
-        sendCommand("02 A1 45 3${zone} 44 80 5A 58 0d")
+        sendCommand("02 A1 45 3${zone} 44 80 5A 58 0d") // Power OFF command
         getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "switch", value: "off")
     }
 }
 
-// MUTE all zones (1-4)
+// Mute Control for All Zones
 def muteAllZones() {
-    if (debugLogging) log.debug "Muting all zones"
     (1..4).each { zone ->
-        sendCommand("02 A1 45 3${zone} 4D 80 30 30 0d")
+        sendCommand("02 A1 45 3${zone} 4D 80 30 30 0d") // Mute command
         getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "mute", value: "muted")
     }
 }
 
-// UNMUTE all zones (1-4)
 def unmuteAllZones() {
-    if (debugLogging) log.debug "Unmuting all zones"
     (1..4).each { zone ->
-        sendCommand("02 A1 45 3${zone} 55 80 30 30 0d")
+        sendCommand("02 A1 45 3${zone} 55 80 30 30 0d") // Unmute command
         getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "mute", value: "unmuted")
     }
 }
-
 
 
 def deleteAllChildDevices() {
