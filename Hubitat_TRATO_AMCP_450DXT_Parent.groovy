@@ -9,6 +9,10 @@ metadata {
         command "createChildDevices"
         command "sendCommand", ["string"]
         command "deleteAllChildDevices"
+        command "powerOnAllZones"
+        command "powerOffAllZones"
+        command "muteAllZones"
+        command "unmuteAllZones"        
         attribute "connection", "string"
     }
     
@@ -41,7 +45,7 @@ def initialize() {
     
     // Open new connection
     try {
-        interfaces.rawSocket.connect(ipAddress, port.toInteger(), byteInterface: true)
+        interfaces.rawSocket.connect(ipAddress, port.toInteger())
         sendEvent(name: "connection", value: "connected")
         log.info "Connected to ${ipAddress}:${port}"
     } catch (Exception e) {
@@ -92,6 +96,52 @@ def sendCommand(String cmd) {
         runIn(reconnectInterval, initialize)
     }
 }
+
+def on(){
+powerOnAllZones()
+}
+
+def off(){
+powerOffAllZones()
+}
+
+// Turn ON all zones (1-4)
+def powerOnAllZones() {
+    if (debugLogging) log.debug "Powering ON all zones"
+    (1..4).each { zone ->
+        sendCommand("02 A1 45 3${zone} 4C 80 30 30 0d")
+        getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "switch", value: "on")
+    }
+}
+
+// Turn OFF all zones (1-4) 
+def powerOffAllZones() {
+    if (debugLogging) log.debug "Powering OFF all zones"
+    (1..4).each { zone ->
+        sendCommand("02 A1 45 3${zone} 44 80 5A 58 0d")
+        getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "switch", value: "off")
+    }
+}
+
+// MUTE all zones (1-4)
+def muteAllZones() {
+    if (debugLogging) log.debug "Muting all zones"
+    (1..4).each { zone ->
+        sendCommand("02 A1 45 3${zone} 4D 80 30 30 0d")
+        getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "mute", value: "muted")
+    }
+}
+
+// UNMUTE all zones (1-4)
+def unmuteAllZones() {
+    if (debugLogging) log.debug "Unmuting all zones"
+    (1..4).each { zone ->
+        sendCommand("02 A1 45 3${zone} 55 80 30 30 0d")
+        getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "mute", value: "unmuted")
+    }
+}
+
+
 
 def deleteAllChildDevices() {
     if (debugLogging) log.debug "Deleting all child devices"
