@@ -1,3 +1,22 @@
+/**
+ *  // MR450DXT-Parent.groovy - Driver principal
+ *
+ *  Copyright 2025 VH 
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License. You may obtain a copy of the License at:
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
+ *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+ *  for the specific language governing permissions and limitations under the License.
+ *
+ *
+ *            --- Driver para AMCP 4.5 - Parent
+ *           v.1  30/04/2025 - BETA. 
+ *
+ */
 metadata {
     definition (
         name: "MR450DXT Parent",
@@ -9,10 +28,6 @@ metadata {
         command "createChildDevices"
         command "sendCommand", ["string"]
         command "deleteAllChildDevices"
-        command "powerOnAllZones"
-        command "powerOffAllZones"
-        command "muteAllZones"
-        command "unmuteAllZones"        
         attribute "connection", "string"
     }
     
@@ -45,7 +60,7 @@ def initialize() {
     
     // Open new connection
     try {
-        interfaces.rawSocket.connect(ipAddress, port.toInteger())
+        interfaces.rawSocket.connect(ipAddress, port.toInteger(), byteInterface: true)
         sendEvent(name: "connection", value: "connected")
         log.info "Connected to ${ipAddress}:${port}"
     } catch (Exception e) {
@@ -73,24 +88,20 @@ def socketStatus(String message) {
 
 def parse(String message) {
     if (debugLogging) log.debug "Received: ${message}"
-    // Handle responses if needed
 }
 
 def sendCommand(String cmd) {
     if (now() - state.lastCommandSent < state.commandDelay) {
         pauseExecution(state.commandDelay - (now() - state.lastCommandSent))
     }
-    
-    if (debugLogging) log.debug "Sending command: ${cmd}"
-    
+
     try {
-        // Convert hex string to bytes
-        def bytes = []
-        cmd.split().each { part ->
-            bytes.add(Integer.parseInt(part, 16))
-        }
+        // For iTach devices, we need to use sendserialhex format
+        def formattedCmd = cmd + "\r"
         
-        interfaces.rawSocket.sendMessage(bytes)
+        if (debugLogging) log.debug "Sending iTach command: ${formattedCmd}"
+        
+        interfaces.rawSocket.sendMessage(formattedCmd)
         state.lastCommandSent = now()
     } catch (Exception e) {
         log.error "Failed to send command: ${e.message}"
@@ -99,51 +110,13 @@ def sendCommand(String cmd) {
     }
 }
 
-def on(){
-powerOnAllZones()
-}
-
-def off(){
-powerOffAllZones()
-}
-
-// Power Control for All Zones
-def powerOnAllZones() {
-    (1..4).each { zone ->
-        sendCommand("02 A1 45 3${zone} 4C 80 30 30 0d") // Power ON command
-        getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "switch", value: "on")
-    }
-}
-
-def powerOffAllZones() {
-    (1..4).each { zone ->
-        sendCommand("02 A1 45 3${zone} 44 80 5A 58 0d") // Power OFF command
-        getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "switch", value: "off")
-    }
-}
-
-// Mute Control for All Zones
-def muteAllZones() {
-    (1..4).each { zone ->
-        sendCommand("02 A1 45 3${zone} 4D 80 30 30 0d") // Mute command
-        getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "mute", value: "muted")
-    }
-}
-
-def unmuteAllZones() {
-    (1..4).each { zone ->
-        sendCommand("02 A1 45 3${zone} 55 80 30 30 0d") // Unmute command
-        getChildDevice("${device.deviceNetworkId}:zone${zone}")?.sendEvent(name: "mute", value: "unmuted")
-    }
-}
-
 
 def deleteAllChildDevices() {
     if (debugLogging) log.debug "Deleting all child devices"
     
     try {
-        // Delete zone children (1-4)
-        for (int i = 1; i <= 4; i++) {
+        // Delete zone children (1-6)
+        for (int i = 1; i <= 6; i++) {
             def childDni = "${device.deviceNetworkId}:zone${i}"
             def child = getChildDevice(childDni)
             if (child) {
@@ -152,8 +125,8 @@ def deleteAllChildDevices() {
             }
         }
         
-        // Delete source children (1-4)
-        for (int i = 1; i <= 4; i++) {
+        // Delete source children (1-6)
+        for (int i = 1; i <= 6; i++) {
             def childDni = "${device.deviceNetworkId}:source${i}"
             def child = getChildDevice(childDni)
             if (child) {
@@ -168,12 +141,11 @@ def deleteAllChildDevices() {
     }
 }
 
-
 def createChildDevices() {
     log.info "Creating child devices for MR 4.50 D-XT"
     
-    // Create zone devices (1-4)
-    for (int i = 1; i <= 4; i++) {
+    // Create zone devices (1-6)
+    for (int i = 1; i <= 6; i++) {
         def childDni = "${device.deviceNetworkId}:zone${i}"
         def child = getChildDevice(childDni)
         
@@ -196,8 +168,8 @@ def createChildDevices() {
         }
     }
     
-    // Create source devices (only 1-4 now)
-    for (int i = 1; i <= 4; i++) {
+    // Create source devices (1-6)
+    for (int i = 1; i <= 6; i++) {
         def childDni = "${device.deviceNetworkId}:source${i}"
         def child = getChildDevice(childDni)
         
